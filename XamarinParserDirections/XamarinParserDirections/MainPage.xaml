@@ -8,11 +8,19 @@
     <StackLayout>
         <Entry Placeholder="Place of origin" Text="{Binding Origin}" />
         <Entry Placeholder="Place of destination" Text="{Binding Destination}" />
+        <Entry Placeholder="Additional waypoint" Text="{Binding AdditionalWaypoint}" />
         <Entry Placeholder="Specify the result" Text="{Binding QueryText}" />
         <Button
-            Command="{Binding GetCommand}"
+            Command="{Binding GetInfoWithoutWaypointsCommand}"
             CommandParameter="{Binding DestinationList}"
-            Text="get" />
+            Text="Get info without waypoints" />
+
+        <Button Command="{Binding AddWaypoint}" Text="Add waypoint" />
+
+        <Button
+            Command="{Binding GetInfoWithWaypointsCommand}"
+            CommandParameter="{Binding DestinationList}"
+            Text="Get info with waypoints" />
 
         <ListView HasUnevenRows="True" ItemsSource="{Binding PartialFullInfoList}">
             <ListView.ItemTemplate>

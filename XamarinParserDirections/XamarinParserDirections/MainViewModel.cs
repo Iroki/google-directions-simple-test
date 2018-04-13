@@ -29,7 +29,9 @@ namespace XamarinParserDirections
         }
 
 
-        public string ApiAddress = "https://maps.googleapis.com/maps/api/directions/json?key={0}&origin={1}&destination={2}"; //change later
+        public string ApiAddressWithoutWaypoints = "https://maps.googleapis.com/maps/api/directions/json?key={0}&origin={1}&destination={2}"; //change later
+        public string ApiAddressWithWaypoints = "https://maps.googleapis.com/maps/api/directions/json?key={0}&origin={1}&destination={2}&waypoints=optimize:true{3}"; //change later
+
 
         public string ApiKey = "AIzaSyAfP9wu3t4g0y3-UQE6sy5W6wFF03w9Cd0";
 
@@ -61,8 +63,56 @@ namespace XamarinParserDirections
             }
         }
 
+        //дополнительно для промежуточных waypoints 
+
+        private string _additionalWaypoint;
+        public string AdditionalWaypoint
+        {
+            get
+            {
+                return _additionalWaypoint;
+            }
+            set
+            {
+                _additionalWaypoint = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        private List<string> _waypointsList = new List<string>();
+        public List<string> WaypointsList
+        {
+            get
+            {
+                return _waypointsList;
+            }
+            set
+            {
+                _waypointsList = value;
+                RaisePropertyChanged();
+            }
+        }
+
+
+        public Command AddWaypoint
+        {
+            get
+            {
+                return new Command(() =>
+               {
+                   if (string.IsNullOrEmpty(AdditionalWaypoint))
+                       return;
+                   
+                   WaypointsList.Add(AdditionalWaypoint);
+
+                   AdditionalWaypoint = String.Empty;
+               });
+            }
+        }
+
+
         private string _queryText;
-        public string QueryText
+        public string QueryText //для отбора в результатах
         {
             get
             {
@@ -71,9 +121,9 @@ namespace XamarinParserDirections
             set
             {
                 _queryText = value;
-                Get(_queryText);
+                ResultContains(_queryText);
                 RaisePropertyChanged();
-                
+
             }
         }
 
@@ -99,21 +149,19 @@ namespace XamarinParserDirections
 
 
         //дополнительное задание
-        public void Get(string query)
+        public void ResultContains(string query)
         {
 
-            
+
             if (string.IsNullOrEmpty(QueryText))
                 return;
 
-            PartialFullInfoList = new ObservableCollection<FullInfo>( CompleteFullInfoList?.Where(x => x.DestinationAddress.Contains(query) || x.DestinationLatitude.ToString().Contains(query) ||
-                                                       x.DestinationLongitude.ToString().Contains(query) || x.DistanceKilometers.Contains(query) || x.DistanceMeters.ToString().Contains(query) ||
-                                                       x.DurationHours.Contains(query) || x.DurationSeconds.ToString().Contains(query) || x.OriginAddress.Contains(query) || 
-                                                       x.OriginLatitude.ToString().Contains(query) || x.OriginLongitude.ToString().Contains(query)).ToList());
+            PartialFullInfoList = new ObservableCollection<FullInfo>(CompleteFullInfoList?.Where(x => x.DestinationAddress.Contains(query) || x.DestinationLatitude.ToString().Contains(query) ||
+                                                      x.DestinationLongitude.ToString().Contains(query) || x.DistanceKilometers.Contains(query) || x.DistanceMeters.ToString().Contains(query) ||
+                                                      x.DurationHours.Contains(query) || x.DurationSeconds.ToString().Contains(query) || x.OriginAddress.Contains(query) ||
+                                                      x.OriginLatitude.ToString().Contains(query) || x.OriginLongitude.ToString().Contains(query)).ToList());
 
         }
-
-
 
 
         public ObservableCollection<FullInfo> _completefullInfoList = new ObservableCollection<FullInfo>();
@@ -147,10 +195,17 @@ namespace XamarinParserDirections
 
 
 
+
+
+
+
+
+
+
         HttpClient Client { get; set; } = new HttpClient();
 
 
-        public Command GetCommand
+        public Command GetInfoWithoutWaypointsCommand
         {
             get
             {
@@ -161,7 +216,7 @@ namespace XamarinParserDirections
 
                   foreach (var destination in DestinationList)
                   {
-                      using (HttpResponseMessage message = await Client.GetAsync(string.Format(ApiAddress, ApiKey, WebUtility.UrlEncode(Origin), WebUtility.UrlEncode(destination))).ConfigureAwait(false))
+                      using (HttpResponseMessage message = await Client.GetAsync(string.Format(ApiAddressWithoutWaypoints, ApiKey, WebUtility.UrlEncode(Origin), WebUtility.UrlEncode(destination))).ConfigureAwait(false))
                       {
                           if (message.IsSuccessStatusCode)
                           {
@@ -198,10 +253,91 @@ namespace XamarinParserDirections
                       }
                   }
 
-                  
+
               });
             }
         }
+
+
+        //google directions additional waypoints
+
+        public string ConvertWaypoints(List<string> waypointsList)
+        {
+
+            string newWaypointString = String.Empty; ; //= string.Join( overload with list and separator, but the last waypoint shouldn't have a separtor at the end;
+
+            foreach (var item in waypointsList)
+            {
+                newWaypointString += "|" + item;
+            }
+
+            return newWaypointString;
+
+        }
+
+
+
+
+
+        public Command GetInfoWithWaypointsCommand
+        {
+            get
+            {
+
+                return new Command(async () => // return new Command<List<string>>(async (List<string> DestinationList) =>
+
+                {
+                    if (WaypointsList == null)
+                        return;
+
+                   var waypoints = ConvertWaypoints(WaypointsList);
+
+                    //foreach (var destination in DestinationList)
+                    //{
+                        using (HttpResponseMessage message = await Client.GetAsync(string.Format(ApiAddressWithWaypoints, ApiKey, WebUtility.UrlEncode(Origin), WebUtility.UrlEncode(Destination), WebUtility.UrlEncode(waypoints))).ConfigureAwait(false))
+                        {
+                            if (message.IsSuccessStatusCode)
+                            {
+                                string json = await message.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                                RootObject results = JsonConvert.DeserializeObject<RootObject>(json); // add Task run - await, because it goes past this point before the data is fetched otherwise;
+
+                                if (results.status == "OK")
+                                {
+                                    foreach (var route in results.routes) //вложенные уровни JSON, иначе не работает десериализация результата от этого API (результат содержит вложенные списки элементов)ы
+                                    {
+                                        foreach (var leg in route.legs)
+                                        {
+                                            var fullInfo = new FullInfo
+                                            {
+                                                DistanceKilometers = leg.distance.text,//.distance.text,
+                                                DistanceMeters = leg.distance.value,
+                                                DurationHours = leg.duration.text,
+                                                DurationSeconds = leg.duration.value,
+                                                OriginAddress = leg.start_address,
+                                                DestinationAddress = leg.end_address,
+                                                OriginLatitude = leg.start_location.lat,
+                                                OriginLongitude = leg.start_location.lng,
+                                                DestinationLatitude = leg.end_location.lat,
+                                                DestinationLongitude = leg.end_location.lng,
+                                            };
+
+                                            CompleteFullInfoList.Add(fullInfo);
+                                            PartialFullInfoList = new ObservableCollection<FullInfo>(CompleteFullInfoList); // если просто присваивать одно другому, меняются оба, так как это ссылочный тип
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    
+                    WaypointsList.Clear();
+
+                });
+
+               
+            }
+        }
+
 
 
     }
@@ -254,6 +390,8 @@ namespace XamarinParserDirections
     {
         [Newtonsoft.Json.JsonProperty("legs")]
         public List<Leg> legs { get; set; }// public List<Leg> legs { get; set; }
+
+        public List<object> waypoint_order { get; set; }
     }
 
     public class RootObject
