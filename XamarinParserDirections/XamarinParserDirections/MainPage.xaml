@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="XamarinParserDirections.MainPage"
+    xmlns="http://xamarin.com/schemas/2014/forms"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:XamarinParserDirections">
+
+    <StackLayout>
+        <Entry Placeholder="Place of origin" Text="{Binding Origin}" />
+        <Entry Placeholder="Place of destination" Text="{Binding Destination}" />
+        <Entry Placeholder="Specify the result" Text="{Binding QueryText}" />
+        <Button
+            Command="{Binding GetCommand}"
+            CommandParameter="{Binding DestinationList}"
+            Text="get" />
+
+        <ListView HasUnevenRows="True" ItemsSource="{Binding PartialFullInfoList}">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <ViewCell>
+                        <ViewCell.View>
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="Small"
+                                Text="{Binding Description}" />
+                        </ViewCell.View>
+                    </ViewCell>
+                </DataTemplate>
+
+            </ListView.ItemTemplate>
+        </ListView>
+    </StackLayout>
+
+</ContentPage>
